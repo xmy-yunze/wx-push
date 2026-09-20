@@ -1,0 +1,55 @@
+package com.wxpush.admin.support;
+
+import com.wxpush.admin.dto.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+/**
+ * admin 接口的全局异常处理。
+ *
+ * <p><b>⚠️ 关键点：{@code basePackages} 必须限定在 admin 包。</b>
+ * 如果不加这个限制，{@code @RestControllerAdvice} 会拦截<b>整个应用</b>的异常 ——
+ * 包括 {@code /wx} 微信回调。那样一来，微信接口一旦抛异常就会返回 JSON 格式的错误体，
+ * 而微信只认 XML 或空串，会导致解析失败并触发重推。</p>
+ */
+@Slf4j
+@RestControllerAdvice(basePackages = "com.wxpush.admin")
+public class GlobalExceptionHandler {
+
+    /** 资源不存在 → 404 */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNotFound(ResourceNotFoundException e) {
+        log.warn("admin 接口：资源不存在 —— {}", e.getMessage());
+        return ApiResponse.fail(ApiResponse.CODE_NOT_FOUND, e.getMessage());
+    }
+
+    /**
+     * 参数不合法 → 400。
+     *
+     * <p>给运营者看的提示不能是堆栈，所以这里只返回简短的中文说明，
+     * 细节写进日志留给开发排查。</p>
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleBadRequest(IllegalArgumentException e) {
+        log.warn("admin 接口：参数不合法 —— {}", e.getMessage());
+        return ApiResponse.fail(ApiResponse.CODE_BAD_REQUEST, "请求参数不合法：" + e.getMessage());
+    }
+
+    /**
+     * 兜底 —— 其它未预期异常 → 500。
+     *
+     * <p>对外只说「服务端内部错误」，具体堆栈只进日志。
+     * 把异常细节返回给前端是常见的信息泄露渠道。</p>
+     */
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ApiResponse<Void> handleUnexpected(Exception e) {
+        log.error("admin 接口：未预期异常", e);
+        return ApiResponse.fail(ApiResponse.CODE_SERVER_ERROR, "服务端内部错误，请查看后端日志");
+    }
+}

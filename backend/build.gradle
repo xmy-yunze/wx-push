@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.7'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.wxpush'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    // 先走阿里云镜像（与 login-demo 保持一致）
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://maven.aliyun.com/repository/spring' }
+    maven { url 'https://maven.aliyun.com/repository/spring-plugin' }
+    // 再走中央仓库（兜底）
+    mavenCentral()
+}
+
+// 保留方法参数名，便于 MyBatis 多参数映射与后续调试
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-parameters'
+    options.encoding = 'UTF-8'
+}
+
+dependencies {
+    // Web：微信回调用它的接入层
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // 持久层：原生 MyBatis（不用 MyBatis-Plus），Mapper 走 XML
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // 配置类绑定 @ConfigurationProperties
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

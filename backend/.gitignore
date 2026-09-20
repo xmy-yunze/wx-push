@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# macOS
+.DS_Store
+
+# 本地配置与密钥（红线：AppSecret / Token 绝不进 Git）
+application-local.yml
+application-local.yaml
+*.key
+.env

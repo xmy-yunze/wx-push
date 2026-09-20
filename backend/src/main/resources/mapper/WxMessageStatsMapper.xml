@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  统计聚合 SQL。
+  namespace 必须与 Mapper 接口的全限定名完全一致。
+-->
+<mapper namespace="com.wxpush.repository.mapper.WxMessageStatsMapper">
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM wx_message_log
+    </select>
+
+    <select id="countSince" resultType="long">
+        SELECT COUNT(*) FROM wx_message_log
+        WHERE created_at &gt;= #{since}
+    </select>
+
+    <select id="countByEvent" resultType="long">
+        SELECT COUNT(*) FROM wx_message_log
+        WHERE `event` = #{event}
+    </select>
+
+    <select id="countDistinctUsers" resultType="long">
+        SELECT COUNT(DISTINCT from_user) FROM wx_message_log
+    </select>
+
+    <!--
+      按天聚合。
+      ⚠️ 三个注意点：
+      1. `date` 和 `value` 都是 MySQL 保留字/函数名，做别名时必须加反引号，否则语法报错；
+      2. 用 DATE_FORMAT 直接格式化成字符串，前端拿到就能画图，不用再处理时区；
+      3. 条件用 [startDate, endDate+1天) 的左闭右开区间 —— 写成 BETWEEN 或 <= endDate
+         会把结束当天 00:00:00 之后的数据全部漏掉。这是日期范围查询最常见的坑。
+    -->
+    <select id="selectDailyCount" resultType="com.wxpush.repository.dto.DailyCount">
+        SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS `date`,
+               COUNT(*) AS total,
+               SUM(CASE WHEN `event` = 'subscribe' THEN 1 ELSE 0 END) AS subscribe,
+               SUM(CASE WHEN `event` = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribe
+        FROM wx_message_log
+        WHERE created_at &gt;= #{startDate}
+          AND created_at &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY `date`
+        ORDER BY `date`
+    </select>
+
+    <select id="selectTypeDistribution" resultType="com.wxpush.repository.dto.TypeCount">
+        SELECT msg_type AS `name`,
+               COUNT(*) AS `value`
+        FROM wx_message_log
+        GROUP BY msg_type
+        ORDER BY `value` DESC
+    </select>
+
+</mapper>

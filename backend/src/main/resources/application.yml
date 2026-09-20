@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: wx-push-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # ⚠️ 实测确认：本机 MySQL 经典协议端口是 3326（33060 是 X Protocol，JDBC 连不上）
+    url: jdbc:mysql://localhost:3326/wx_push?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    # 密码走环境变量，不写在文件里（项目红线：密钥不进 Git）
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+
+# 原生 MyBatis 配置（不用 MyBatis-Plus）
+mybatis:
+  # XML 映射文件位置
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.wxpush.repository.entity
+  configuration:
+    # 下划线列名 → 驼峰属性名
+    map-underscore-to-camel-case: true
+
+# 微信配置：三项均来自公众平台「设置与开发 → 基本配置」
+# 用环境变量注入，禁止硬编码进代码或提交进 Git
+wx:
+  token: ${WX_TOKEN:}
+  app-id: ${WX_APP_ID:}
+  app-secret: ${WX_APP_SECRET:}
+
+logging:
+  level:
+    root: INFO
+    # 开发期开到 DEBUG 便于看消息处理链路；上线前调回 INFO
+    com.wxpush: DEBUG

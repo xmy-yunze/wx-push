@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  微信消息流水的 SQL 映射。
+  namespace 必须与 Mapper 接口的全限定名完全一致，否则启动时报 BindingException。
+-->
+<mapper namespace="com.wxpush.repository.mapper.WxMessageLogMapper">
+
+    <!-- 列名 → 属性名 的显式映射（下划线转驼峰，写出来便于对照排查） -->
+    <resultMap id="BaseResultMap" type="com.wxpush.repository.entity.WxMessageLog">
+        <id column="id" property="id"/>
+        <result column="msg_id" property="msgId"/>
+        <result column="from_user" property="fromUser"/>
+        <result column="to_user" property="toUser"/>
+        <result column="msg_type" property="msgType"/>
+        <result column="event" property="event"/>
+        <result column="content" property="content"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, msg_id, from_user, to_user, msg_type, `event`, content, created_at
+    </sql>
+
+    <!--
+      列表查询与总数统计共用的 WHERE 片段。
+      抽成 <sql> 是有意为之：条件一旦写成两份，早晚会改漏一处，
+      出现「总数显示 20 条，翻页却只有 3 条」这类难查的问题。
+
+      ⚠️ 所有入参一律用 #{}（预编译占位符，防 SQL 注入），绝不要用 ${}（字符串直接拼接）。
+      ⚠️ XML 里 < 和 > 必须转义成 &lt; 和 &gt;，否则会被当成标签起始符导致解析失败。
+    -->
+    <sql id="Condition_Where">
+        <where>
+            <if test="msgType != null and msgType != ''">
+                AND msg_type = #{msgType}
+            </if>
+            <if test="event != null and event != ''">
+                AND `event` = #{event}
+            </if>
+            <if test="startTime != null">
+                AND created_at &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND created_at &lt; #{endTime}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (from_user LIKE CONCAT('%', #{keyword}, '%')
+                     OR content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </sql>
+
+    <!--
+      幂等写入：msg_id 上有唯一索引，重复插入被 IGNORE 静默跳过，返回受影响行数 0。
+      useGeneratedKeys + keyProperty：把自增主键回填到实体的 id 属性上。
+    -->
+    <insert id="insertIgnore" parameterType="com.wxpush.repository.entity.WxMessageLog"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO wx_message_log (msg_id, from_user, to_user, msg_type, `event`, content, created_at)
+        VALUES (#{msgId}, #{fromUser}, #{toUser}, #{msgType}, #{event}, #{content}, NOW())
+    </insert>
+
+    <select id="selectByMsgId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM wx_message_log
+        WHERE msg_id = #{msgId}
+        LIMIT 1
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM wx_message_log
+        WHERE id = #{id}
+    </select>
+
+    <!--
+      分页：LIMIT 在前、OFFSET 在后，这是 MySQL 的标准写法。
+      排序用 id DESC 而不是 created_at DESC —— id 是自增主键，天然唯一且有序，
+      而 created_at 在同一秒内可能重复（批量推送时很常见），会导致翻页记录错位或漏条。
+    -->
+    <select id="selectPage" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM wx_message_log
+        <include refid="Condition_Where"/>
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        SELECT COUNT(*)
+        FROM wx_message_log
+        <include refid="Condition_Where"/>
+    </select>
+
+</mapper>

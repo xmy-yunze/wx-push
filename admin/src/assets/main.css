@@ -1,0 +1,25 @@
+/* 全局基础样式 —— 只做最小必要的重置，具体样式交给 Element Plus */
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+  background-color: #f5f7fa;
+}
+
+/* 数据为空或字段为 null 时的统一占位样式 */
+.text-placeholder {
+  color: #c0c4cc;
+}
+
+/* 表格里的时间列不换行 */
+.nowrap {
+  white-space: nowrap;
+}
