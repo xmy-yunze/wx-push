@@ -1,21 +1,22 @@
 <script setup>
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, User } from '@element-plus/icons-vue'
-import request from '../api/request'
+import { login as loginApi } from '../api/auth'
+import { setUser } from '../store/auth'
 
 /**
  * 登录页。
  *
- * ⚠️ 状态说明：后端鉴权接口（POST /api/auth/login）**尚未实现**，
- * 契约已在 docs/admin-接口契约.md 第四节定好。
- * 本页按契约把前端部分做完 —— 接口一上线即可直接跑通，前端不需要再改。
+ * 鉴权方案：Session + Cookie —— 登录成功后后端写入服务端会话，
+ * 浏览器持有 JSESSIONID，axios 实例已开 withCredentials 自动携带。
+ * 前端不需要自己管 token。
  *
- * 鉴权方案：Session + Cookie，因此 axios 实例已开 withCredentials，
- * 登录成功后浏览器会自动持有 JSESSIONID，后续请求自动带上。
+ * 登录态由后端说了算：拿到用户信息后写入全局状态，路由守卫据此放行。
  */
 
+const route = useRoute()
 const router = useRouter()
 const formRef = ref(null)
 const loading = ref(false)
@@ -40,9 +41,17 @@ async function onSubmit() {
 
   loading.value = true
   try {
-    await request.post('/auth/login', { ...form })
+    const user = await loginApi(form.username, form.password)
+    setUser(user)
     ElMessage.success('登录成功')
-    router.push('/dashboard')
+
+    // 回到被拦下来的那个页面；没有就去看板。
+    // ⚠️ 只接受以 / 开头的站内路径：redirect 来自 URL 查询参数，是外部可控输入，
+    // 不校验的话就成了一个「开放重定向」入口（可被用来伪造可信的跳转链接）。
+    const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+      ? route.query.redirect
+      : '/dashboard'
+    router.push(redirect)
   } catch {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
@@ -99,15 +108,6 @@ async function onSubmit() {
           登 录
         </el-button>
       </el-form>
-
-      <el-alert
-        class="login-tip"
-        type="warning"
-        :closable="false"
-        show-icon
-        title="后端鉴权接口尚未实现"
-        description="POST /api/auth/login 还没写（契约见 docs/admin-接口契约.md 第四节）。现在点登录会返回 404，属预期现象。"
-      />
     </div>
   </div>
 </template>
@@ -163,9 +163,5 @@ async function onSubmit() {
 .login-btn {
   width: 100%;
   margin-top: 4px;
-}
-
-.login-tip {
-  margin-top: 20px;
 }
 </style>

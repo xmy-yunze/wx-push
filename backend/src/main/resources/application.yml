@@ -1,5 +1,17 @@
 server:
   port: 8080
+  servlet:
+    session:
+      # 会话空闲超时：30 分钟无操作即失效，需要重新登录。
+      # 注意这是「空闲超时」而非「绝对超时」—— 每次 /api/** 请求都会把计时重新推后。
+      timeout: 30m
+      cookie:
+        # 禁止 JavaScript 读取该 Cookie（document.cookie 拿不到），降低 XSS 窃取会话的风险。
+        # Boot 默认即为 true，这里显式写出来是为了让安全意图可见。
+        http-only: true
+        # 关于 SameSite：Servlet 容器默认为 Lax，已能挡住跨站伪造的 POST 请求。
+        # 开发期走 Vite 代理、生产期走 Nginx 同域，都不属于跨站，因此无需改动。
+        # ⚠️ 只有将来前端真被拆到独立域名时，才需要改成 None（且必须同时启用 HTTPS）。
 
 spring:
   application:

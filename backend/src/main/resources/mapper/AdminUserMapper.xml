@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  管理后台账号的 SQL 映射。
+  namespace 必须与 Mapper 接口的全限定名完全一致，否则启动时报 BindingException。
+-->
+<mapper namespace="com.wxpush.repository.mapper.AdminUserMapper">
+
+    <!-- 列名 → 属性名 的显式映射（下划线转驼峰，写出来便于对照排查） -->
+    <resultMap id="BaseResultMap" type="com.wxpush.repository.entity.AdminUser">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password_hash" property="passwordHash"/>
+        <result column="display_name" property="displayName"/>
+        <result column="status" property="status"/>
+        <result column="last_login_at" property="lastLoginAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, username, password_hash, display_name, status,
+        last_login_at, created_at, updated_at
+    </sql>
+
+    <!--
+      ⚠️ 这里用 #{}（预编译占位符），绝不能用 ${}（字符串拼接）——
+      登录入参是外部输入，用 ${} 等于把 SQL 注入的门直接敞开。
+
+      查询条件只按 username，密码校验在 Java 侧做（PBKDF2 每次盐都不同，
+      根本没法写成 SQL 条件）。所以这条 SQL 返回的 password_hash 是「候选哈希」，
+      必须经 PasswordEncoder.matches 比对后才算数。
+    -->
+    <select id="selectByUsername" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM admin_user
+        WHERE username = #{username}
+        LIMIT 1
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM admin_user
+        WHERE id = #{id}
+    </select>
+
+    <!--
+      只更新登录时间这一列，不用 SET 全字段：
+      全字段更新会把 Java 侧读到的旧值写回去，一旦将来有并发改密码之类的操作就会互相覆盖。
+    -->
+    <update id="updateLastLoginAt">
+        UPDATE admin_user
+        SET last_login_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

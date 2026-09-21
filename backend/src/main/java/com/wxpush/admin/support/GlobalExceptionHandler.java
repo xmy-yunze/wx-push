@@ -28,6 +28,24 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 未登录 / 登录已过期 / 账号密码不正确 → 401。
+     *
+     * <p>两处会抛这个异常：{@link LoginInterceptor} 拦下未登录的请求，
+     * 以及 {@code AuthService} 校验账号密码失败。
+     * 走同一个处理器，保证两者输出<b>完全一致</b>的响应结构 ——
+     * 前端只需要按一套规则处理 401。</p>
+     *
+     * <p>⚠️ 这里不区分「账号不存在」与「密码错误」，提示统一为业务层给的那句话，
+     * 避免通过提示差异做账号枚举。</p>
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleUnauthorized(UnauthorizedException e) {
+        log.warn("admin 接口：未授权 —— {}", e.getMessage());
+        return ApiResponse.fail(ApiResponse.CODE_UNAUTHORIZED, e.getMessage());
+    }
+
+    /**
      * 参数不合法 → 400。
      *
      * <p>给运营者看的提示不能是堆栈，所以这里只返回简短的中文说明，
