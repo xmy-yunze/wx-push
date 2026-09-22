@@ -76,10 +76,10 @@ async function onSubmit() {
         label-position="top"
         @submit.prevent="onSubmit"
       >
-        <el-form-item label="账号" prop="username">
+        <el-form-item label="登录账号" prop="username">
           <el-input
             v-model="form.username"
-            placeholder="请输入账号"
+            placeholder="登录账号（英文字母，如 admin）"
             size="large"
             :prefix-icon="User"
             clearable
