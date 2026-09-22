@@ -110,6 +110,36 @@ RESP="$(curl -s -m 5 -w '|%{http_code}' -X POST "$BASE?signature=${SIG}&timestam
     -H "Content-Type: text/xml" -d 'this is not xml')"
 check "HTTP 状态码为 200" "$RESP" "|200"
 
+# ------------------------------------------------- [8] CLICK 菜单事件（自定义菜单）
+# 这组用例的价值：click 菜单的「key」和「回复文案」分处两地时，一旦漏配，
+# 现象是「用户点了菜单毫无反应」，而日志里一切正常 —— 属于最难发现的静默错位。
+# 所以这里把 MenuCatalog 的 4 个 key 逐个点一遍。
+title "[8] POST /wx · CLICK 菜单事件（4 个 key 逐个验证，必须都有文案）"
+for CLICK_KEY in MENU_ABOUT MENU_HOWTO MENU_CONTACT MENU_PROGRESS; do
+    REQ_XML="<xml><ToUserName><![CDATA[gh_abc123]]></ToUserName><FromUserName><![CDATA[oUserOpenid]]></FromUserName><CreateTime>1348831860</CreateTime><MsgType><![CDATA[event]]></MsgType><Event><![CDATA[CLICK]]></Event><EventKey><![CDATA[${CLICK_KEY}]]></EventKey></xml>"
+    RESP="$(curl -s -m 5 -X POST "$BASE?signature=${SIG}&timestamp=${TS}&nonce=${NONCE}" \
+        -H "Content-Type: text/xml" -d "$REQ_XML")"
+    if [[ "$RESP" == *"<MsgType><![CDATA[text]]></MsgType>"* ]]; then
+        green "  ✓ ${CLICK_KEY} → 有文本回复"
+        PASS=$((PASS + 1))
+    else
+        red "  ✗ ${CLICK_KEY} → 未收到文本回复（点了会「没反应」）"
+        printf '    实际输出: %s\n' "${RESP:-（空体）}"
+        FAIL=$((FAIL + 1))
+    fi
+done
+
+title "[9] POST /wx · CLICK 未知 key（菜单被手工改过 → 应静默不回复）"
+REQ_XML='<xml><ToUserName><![CDATA[gh_abc123]]></ToUserName><FromUserName><![CDATA[oUserOpenid]]></FromUserName><CreateTime>1348831860</CreateTime><MsgType><![CDATA[event]]></MsgType><Event><![CDATA[CLICK]]></Event><EventKey><![CDATA[MENU_NOT_EXIST]]></EventKey></xml>'
+RESP="$(curl -s -m 5 -X POST "$BASE?signature=${SIG}&timestamp=${TS}&nonce=${NONCE}" -H "Content-Type: text/xml" -d "$REQ_XML")"
+if [[ -z "$RESP" ]]; then
+    green "  ✓ 返回空体（= 不回复，且不报错）"
+    PASS=$((PASS + 1))
+else
+    red "  ✗ 期望空体，实际: $RESP"
+    FAIL=$((FAIL + 1))
+fi
+
 # ------------------------------------------------------------------ 汇总
 title "汇总"
 printf '  通过 %d 项，失败 %d 项\n' "$PASS" "$FAIL"
