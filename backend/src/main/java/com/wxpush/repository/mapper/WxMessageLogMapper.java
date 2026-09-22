@@ -21,15 +21,21 @@ public interface WxMessageLogMapper {
     /**
      * 幂等写入一条消息流水。
      *
-     * <p>SQL 用 {@code INSERT IGNORE}：命中 {@code msg_id} 唯一索引时静默跳过，不抛异常。</p>
+     * <p>SQL 用 {@code INSERT IGNORE}：命中 {@code dedup_key} 唯一索引时静默跳过，不抛异常。
+     * 去重键由 {@link com.wxpush.domain.DedupKey} 计算 —— 普通消息用 {@code msg:<MsgId>}，
+     * 事件消息用 {@code evt:<FromUser>:<Event>:<EventKey>:<CreateTime>}。
+     * <b>不能用 msg_id 做唯一键</b>：事件消息的 msg_id 为 null，而唯一索引不比较 null。</p>
      *
-     * @param entity 消息流水
+     * @param entity 消息流水（{@code dedupKey} 为 null 时退化为不去重）
      * @return 实际写入行数；{@code 0} 表示该消息已存在（微信重试推送）
      */
     int insertIgnore(WxMessageLog entity);
 
     /**
      * 按消息 ID 查询，主要用于本地验证落库是否成功。
+     *
+     * <p>⚠️ 两条限制：① 事件消息没有 MsgId，用本方法查不到；
+     * ② {@code msg_id} 已降级为普通索引（不再唯一），理论上可能匹配多行，故取第一条。</p>
      *
      * @param msgId 微信消息 ID
      * @return 匹配的记录；不存在返回 {@code null}

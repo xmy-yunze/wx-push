@@ -41,9 +41,16 @@ USE wx_push;
 -- ⚠️ 若该表在本机已存在，CREATE TABLE IF NOT EXISTS 不会改动它。
 --    你的本机表实际 collation 已经是 utf8mb4_0900_ai_ci（字符集固有默认），
 --    与本次统一的目标一致，因此无需 ALTER，保持原样即可。
+--
+-- 🔴 2026-09-22 变更：幂等的唯一键由 msg_id 改为 dedup_key。
+--    原因：事件消息（subscribe / CLICK …）报文里没有 MsgId，落库为 null，
+--    而 MySQL 唯一索引**不比较 null**（多行 null 视为互不相同），
+--    于是唯一约束对事件消息完全失效，微信重推会写出重复行 —— 已实测复现。
+--    对**已存在的库**，请执行 `db/alter-002-add-dedup-key.sql`（一次性迁移）。
 CREATE TABLE IF NOT EXISTS wx_message_log
 (
     id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+    dedup_key  VARCHAR(255)    DEFAULT NULL COMMENT '去重键：msg:<MsgId> 或 evt:<FromUser>:<Event>:<EventKey>:<CreateTime>',
     msg_id     VARCHAR(64)     DEFAULT NULL COMMENT '微信消息 ID；事件消息没有该字段，为 NULL',
     from_user  VARCHAR(64)     NOT NULL COMMENT '发送者 openid',
     to_user    VARCHAR(64)     NOT NULL COMMENT '公众号原始 ID',
@@ -52,9 +59,12 @@ CREATE TABLE IF NOT EXISTS wx_message_log
     content    TEXT COMMENT '消息内容',
     created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入库时间',
     PRIMARY KEY (id),
-    -- 幂等的关键：唯一索引 + INSERT IGNORE
-    -- MySQL 唯一索引允许多个 NULL，所以事件消息（msg_id 为空）不会被互相误挡
-    UNIQUE KEY uk_msg_id (msg_id),
+    -- 幂等的关键：唯一索引 + INSERT IGNORE。
+    -- ⚠️ 唯一键必须是 dedup_key —— 用 msg_id 时事件消息的 null 不受约束（见上方说明）。
+    --    去重键的算法见 com.wxpush.domain.DedupKey，它保证「一定非空」。
+    UNIQUE KEY uk_dedup_key (dedup_key),
+    -- msg_id 只留普通索引：仅供按消息 ID 查询，不再承担唯一约束
+    KEY idx_msg_id (msg_id),
     KEY idx_from_user (from_user),
     KEY idx_created_at (created_at)
 ) ENGINE = InnoDB

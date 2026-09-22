@@ -10,6 +10,7 @@
     <!-- 列名 → 属性名 的显式映射（下划线转驼峰，写出来便于对照排查） -->
     <resultMap id="BaseResultMap" type="com.wxpush.repository.entity.WxMessageLog">
         <id column="id" property="id"/>
+        <result column="dedup_key" property="dedupKey"/>
         <result column="msg_id" property="msgId"/>
         <result column="from_user" property="fromUser"/>
         <result column="to_user" property="toUser"/>
@@ -20,7 +21,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, msg_id, from_user, to_user, msg_type, `event`, content, created_at
+        id, dedup_key, msg_id, from_user, to_user, msg_type, `event`, content, created_at
     </sql>
 
     <!--
@@ -53,13 +54,16 @@
     </sql>
 
     <!--
-      幂等写入：msg_id 上有唯一索引，重复插入被 IGNORE 静默跳过，返回受影响行数 0。
+      幂等写入：dedup_key 上有唯一索引，重复插入被 IGNORE 静默跳过，返回受影响行数 0。
       useGeneratedKeys + keyProperty：把自增主键回填到实体的 id 属性上。
+
+      ⚠️ 唯一键必须是 dedup_key 而不是 msg_id —— 事件消息没有 MsgId（落库为 null），
+      而 MySQL 唯一索引不比较 null，用 msg_id 做约束时事件消息的重推会写出重复行。
     -->
     <insert id="insertIgnore" parameterType="com.wxpush.repository.entity.WxMessageLog"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT IGNORE INTO wx_message_log (msg_id, from_user, to_user, msg_type, `event`, content, created_at)
-        VALUES (#{msgId}, #{fromUser}, #{toUser}, #{msgType}, #{event}, #{content}, NOW())
+        INSERT IGNORE INTO wx_message_log (dedup_key, msg_id, from_user, to_user, msg_type, `event`, content, created_at)
+        VALUES (#{dedupKey}, #{msgId}, #{fromUser}, #{toUser}, #{msgType}, #{event}, #{content}, NOW())
     </insert>
 
     <select id="selectByMsgId" resultMap="BaseResultMap">

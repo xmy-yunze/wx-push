@@ -14,7 +14,7 @@
 |---|---|
 | 消息接入（验签 / 明文收发 / XML 解析） | ✅ |
 | 被动回复（文本回声 / 关注事件 / CLICK 菜单事件） | ✅ |
-| 消息落库（含幂等） | ✅ |
+| 消息落库 + 幂等（`dedup_key`） | ✅ 代码完成 · ⬜ DDL 迁移待执行 |
 | 管理后台（登录鉴权 / 数据看板 / 消息记录） | ✅ |
 | 自定义菜单（增 / 删 / 查 + 干跑预览） | ✅ |
 | `deploy/` 部署配置 · 微信真机联调 | ⬜ 待办（需真实环境） |
@@ -102,6 +102,7 @@ wx-push/
 │   ├── src/main/resources/
 │   │   ├── mapper/             MyBatis XML 映射文件
 │   │   ├── db/schema.sql       表结构唯一真相源（幂等，可重复执行）
+│   │   ├── db/alter-*.sql      一次性迁移脚本（升级已有库用，见 4.2）
 │   │   └── application.yml     主配置（密钥全部走环境变量）
 │   └── src/test/               单元测试
 ├── admin/                      管理后台前端
@@ -138,6 +139,17 @@ mysql -h 127.0.0.1 -P 3306 -u root -p --default-character-set=utf8mb4 \
 > 必须带 `--default-character-set=utf8mb4`，否则中文 `COMMENT` 会存成乱码。
 > 本机开发环境的 MySQL 端口是 `3326`（非默认），按你的实际环境调整，
 > 同时要同步修改 `application.yml` 里的 JDBC URL。
+
+> 📌 **升级已有的库**：`schema.sql` 用的是 `CREATE TABLE IF NOT EXISTS`，对**已存在**的表不会做任何改动。
+> 因此表结构变更（例如 2026-09-22 新增的 `dedup_key` 去重键）要执行对应的一次性迁移脚本：
+>
+> ```bash
+> mysql -h 127.0.0.1 -P 3326 -u root -p --default-character-set=utf8mb4 \
+>   < backend/src/main/resources/db/alter-002-add-dedup-key.sql
+> ```
+>
+> ⚠️ 迁移脚本**只能执行一次** —— MySQL 的 `ADD COLUMN` 不支持 `IF NOT EXISTS`，
+> 重复执行会报 `Duplicate column name`（那是预期行为，不是脚本坏了）。
 
 ### 4.3 启动后端
 
@@ -225,7 +237,7 @@ Vite 已配置 proxy，把 `/api` 转发到 `http://127.0.0.1:8080`，因此前�
 |---|---|
 | `deploy/` 部署配置 | ⏸️ **暂缓** —— 目标共享服务器实测**资源不足**（可用内存仅 457 Mi、无 swap），按原方案会触发 OOM 拖垮别人的服务 → `docs/deploy-部署方案.md` |
 | 微信真机联调 | 🚧 改走**本机 + 内网穿透**（免服务器、免备案，立刻可做）→ `docs/联调-内网穿透方案.md` |
-| 事件消息幂等 | ⬜ 已**实测确认失效**：事件消息无 `MsgId`，唯一索引对 `NULL` 不生效 → 待批（`docs/联调-检测清单.md` §A6） |
+| 事件消息幂等 | ✅ **已修复**（改用 `dedup_key` 唯一键）· 171 单测全绿 · ⬜ 待执行一次性迁移 `db/alter-002-add-dedup-key.sql` → `docs/幂等修复-检测清单.md` |
 | `h5/` 关注者端 | ⬜ 受账号权限限制，暂缓（见 1.1） |
 
 > 管理后台**已完成鉴权**（Session + Cookie、`LoginInterceptor` 挂 `/api/**`，白名单仅 login/logout），
@@ -251,6 +263,7 @@ Vite 已配置 proxy，把 `/api` 转发到 `http://127.0.0.1:8080`，因此前�
 | `deploy-部署方案.md` | 部署方案（§零 部署红线 · 实测基线 · 资源判定） |
 | `联调-内网穿透方案.md` | **本机 + 内网穿透联调方案**（不依赖服务器、免备案） |
 | `联调-检测清单.md` | 联调验证清单（A 组已跑 / B 组本机 / C 组微信端） |
+| `幂等修复-检测清单.md` | `dedup_key` 去重修复的迁移步骤与复验（D1–D9） |
 | `P0-遗留问题-改法问答.md` | 遗留问题的成因与改法 |
 
 ---

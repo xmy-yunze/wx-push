@@ -18,6 +18,15 @@ public class WxMessageLog {
     /** 主键，由数据库自增回填 */
     private Long id;
 
+    /**
+     * 去重键，唯一索引所在列 —— 幂等落库的真正依据。
+     *
+     * <p>取值规则见 {@link com.wxpush.domain.DedupKey}。刻意不用 {@code msgId} 做唯一键：
+     * 事件消息没有 MsgId，落库为 null，而 MySQL 唯一索引不比较 null，
+     * 会让约束对事件消息失效、重推写出重复行。</p>
+     */
+    private String dedupKey;
+
     /** 微信消息 ID；<b>事件消息没有该字段，为 null</b> */
     private String msgId;
 
