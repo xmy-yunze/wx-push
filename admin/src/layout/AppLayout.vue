@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { ArrowDown, DataAnalysis, SwitchButton, Tickets, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, DataAnalysis, Menu, SwitchButton, Tickets, UserFilled } from '@element-plus/icons-vue'
 import { authState, signOut } from '../store/auth'
 
 /**
@@ -63,6 +63,10 @@ async function onLogout() {
         <el-menu-item index="/messages">
           <el-icon><Tickets /></el-icon>
           <span>消息记录</span>
+        </el-menu-item>
+        <el-menu-item index="/menu">
+          <el-icon><Menu /></el-icon>
+          <span>自定义菜单</span>
         </el-menu-item>
       </el-menu>
 

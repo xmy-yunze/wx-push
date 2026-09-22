@@ -6,7 +6,7 @@ import { authState, fetchCurrentUser } from '../store/auth'
  * 路由表。
  *
  * 结构上分两类：
- *   - 带布局的页面（看板 / 消息）挂在 AppLayout 下，共享侧边栏和顶栏；
+ *   - 带布局的页面（看板 / 消息 / 菜单）挂在 AppLayout 下，共享侧边栏和顶栏；
  *   - 登录页独立在外 —— 它不该出现侧边栏。
  *
  * 页面组件全部用动态 import（懒加载），首屏只加载当前页面的代码。
@@ -34,6 +34,12 @@ const routes = [
         name: 'messages',
         component: () => import('../views/MessageListView.vue'),
         meta: { title: '消息记录' }
+      },
+      {
+        path: 'menu',
+        name: 'menu',
+        component: () => import('../views/MenuView.vue'),
+        meta: { title: '自定义菜单' }
       }
     ]
   },

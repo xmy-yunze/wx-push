@@ -31,6 +31,11 @@ tasks.withType(JavaCompile) {
 dependencies {
     // Web：微信回调用它的接入层
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // HTTP 客户端：主动调用微信服务端 API（自定义菜单、access_token）用 RestClient
+    // ⚠️ Boot 4 把 Web 拆成了细粒度 starter —— webmvc 里**不含** RestClient。
+    //    漏引这个 starter 时，单测仍会全绿（测试里手动 RestClient.builder() 喂进去），
+    //    但应用启动会因为「容器中没有 RestClient.Builder bean」直接失败。
+    implementation 'org.springframework.boot:spring-boot-starter-restclient'
     // 持久层：原生 MyBatis（不用 MyBatis-Plus），Mapper 走 XML
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
     runtimeOnly 'com.mysql:mysql-connector-j'

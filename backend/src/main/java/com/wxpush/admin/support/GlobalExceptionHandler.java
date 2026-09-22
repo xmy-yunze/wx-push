@@ -1,6 +1,7 @@
 package com.wxpush.admin.support;
 
 import com.wxpush.admin.dto.ApiResponse;
+import com.wxpush.gateway.WxApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -50,12 +51,35 @@ public class GlobalExceptionHandler {
      *
      * <p>给运营者看的提示不能是堆栈，所以这里只返回简短的中文说明，
      * 细节写进日志留给开发排查。</p>
+     *
+     * <p>菜单结构校验失败也走这里：{@code MenuParser} 与 {@code MenuTree} 抛的
+     * {@link IllegalArgumentException} 消息是特意写成人话的（例如「一级菜单有 4 个，
+     * 微信最多允许 3 个」），直接透传就能让运营者知道该改什么。</p>
      */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBadRequest(IllegalArgumentException e) {
         log.warn("admin 接口：参数不合法 —— {}", e.getMessage());
         return ApiResponse.fail(ApiResponse.CODE_BAD_REQUEST, "请求参数不合法：" + e.getMessage());
+    }
+
+    /**
+     * 调用微信接口失败 → 502。
+     *
+     * <p>为什么是 502 而不是 500？因为故障在<b>上游</b>（微信侧，或到微信的网络），
+     * 不是本服务内部错误。运营者看到 502 就知道排查方向完全不同 ——
+     * 多半是 IP 白名单、密钥或菜单内容的问题，而不是我们代码坏了。</p>
+     *
+     * <p>⚠️ 这里把异常消息<b>原样</b>返回给前端。它是特意写成
+     * 「能直接展示的中文提示 + 括号里的原始错误码」的，例如
+     * 「调用来源 IP 不在公众号后台的白名单内……（微信返回 40164：invalid ip）」。
+     * 这是排错的主要线索，藏起来反而让人无从下手。</p>
+     */
+    @ExceptionHandler(WxApiException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
+    public ApiResponse<Void> handleWxApi(WxApiException e) {
+        log.warn("admin 接口：调用微信失败 —— {}", e.getMessage());
+        return ApiResponse.fail(ApiResponse.CODE_BAD_GATEWAY, e.getMessage());
     }
 
     /**

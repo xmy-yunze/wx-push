@@ -23,6 +23,8 @@ public record ApiResponse<T>(int code, String message, T data) {
     public static final int CODE_UNAUTHORIZED = 401;
     /** 资源不存在 */
     public static final int CODE_NOT_FOUND = 404;
+    /** 调用上游（微信）接口失败 */
+    public static final int CODE_BAD_GATEWAY = 502;
     /** 服务端异常 */
     public static final int CODE_SERVER_ERROR = 500;
 
